@@ -1,6 +1,8 @@
 const pool = require('../config/database');
 const isValidUrl = require('../utils/urlValidator');
 const encodeBase62 = require('../utils/shortCodeGenerator');
+const redis = require('../config/redis');
+
 
 const shortenUrl = async (req, res) => {
   const { original_url, custom_alias, expires_at } = req.body;
@@ -44,6 +46,24 @@ const redirectUrl = async (req, res) => {
   const { shortCode } = req.params;
 
   try {
+    // 1. Redis cache kontrolü
+    const cachedUrl = await redis.get(shortCode);
+    if (cachedUrl) {
+      console.log(`📦 Cache hit: ${shortCode}`);
+      
+      // İsteğe bağlı: Analytics kaydını yine yap
+      await pool.query(
+        `INSERT INTO analytics (url_id, ip_address, user_agent, referer)
+         VALUES ((SELECT id FROM urls WHERE short_code = $1), $2, $3, $4)`,
+        [shortCode, req.ip, req.headers['user-agent'], req.headers.referer || null]
+      );
+
+      return res.redirect(cachedUrl);
+    }
+
+    console.log(`❌ Cache miss: ${shortCode}`);
+
+    // 2. DB'den kontrol
     const result = await pool.query(
       'SELECT * FROM urls WHERE short_code = $1 AND is_active = true',
       [shortCode]
@@ -55,35 +75,33 @@ const redirectUrl = async (req, res) => {
 
     const urlData = result.rows[0];
 
+    // 3. Expiration kontrolü
     if (urlData.expires_at && new Date() > new Date(urlData.expires_at)) {
       return res.status(410).json({ error: 'Link süresi dolmuş' });
     }
 
-    // 🔢 Click count artır
-    await pool.query(
-      'UPDATE urls SET click_count = click_count + 1 WHERE id = $1',
-      [urlData.id]
-    );
+    // 4. Redis'e ekle (1 saat süreyle)
+    await redis.set(shortCode, urlData.original_url, 'EX', 3600);
 
-    // 📊 Analytics kaydı
+    // 5. Click sayısı artır
+    await pool.query('UPDATE urls SET click_count = click_count + 1 WHERE id = $1', [urlData.id]);
+
+    // 6. Analytics kaydı
     await pool.query(
       `INSERT INTO analytics (url_id, ip_address, user_agent, referer)
        VALUES ($1, $2, $3, $4)`,
-      [
-        urlData.id,
-        req.ip,
-        req.headers['user-agent'],
-        req.headers.referer || null
-      ]
+      [urlData.id, req.ip, req.headers['user-agent'], req.headers.referer || null]
     );
 
-    // 🔁 Yönlendir
+    // 7. Yönlendir
     return res.redirect(urlData.original_url);
+
   } catch (err) {
     console.error('redirectUrl error:', err);
     return res.status(500).json({ error: 'Sunucu hatası' });
   }
 };
+
 
 const getUrlStats = async (req, res) => {
   const { shortCode } = req.params;
