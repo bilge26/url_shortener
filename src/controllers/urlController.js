@@ -85,5 +85,43 @@ const redirectUrl = async (req, res) => {
   }
 };
 
+const getUrlStats = async (req, res) => {
+  const { shortCode } = req.params;
 
-module.exports = { shortenUrl, redirectUrl };
+  try {
+    // 1. shortCode'a karşılık gelen URL'yi al
+    const urlResult = await pool.query(
+      'SELECT * FROM urls WHERE short_code = $1',
+      [shortCode]
+    );
+
+    if (urlResult.rows.length === 0) {
+      return res.status(404).json({ error: 'URL bulunamadı' });
+    }
+
+    const urlData = urlResult.rows[0];
+
+    // 2. analytics verilerini çek
+    const analyticsResult = await pool.query(
+      `SELECT id, clicked_at, ip_address, user_agent, referer
+       FROM analytics
+       WHERE url_id = $1
+       ORDER BY clicked_at DESC`,
+      [urlData.id]
+    );
+
+    return res.status(200).json({
+      original_url: urlData.original_url,
+      short_code: urlData.short_code,
+      created_at: urlData.created_at,
+      total_clicks: urlData.click_count,
+      analytics: analyticsResult.rows
+    });
+  } catch (err) {
+    console.error('getUrlStats error:', err);
+    return res.status(500).json({ error: 'Sunucu hatası' });
+  }
+};
+
+
+module.exports = { shortenUrl, redirectUrl, getUrlStats };
