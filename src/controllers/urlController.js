@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const isValidUrl = require('../utils/urlValidator');
 const encodeBase62 = require('../utils/shortCodeGenerator');
 const redis = require('../config/redis');
+const geoip = require('geoip-lite');
 
 
 const shortenUrl = async (req, res) => {
@@ -20,6 +21,12 @@ const shortenUrl = async (req, res) => {
         return res.status(409).json({ error: 'Custom alias zaten kullanılıyor' });
       }
       short_code = custom_alias;
+
+      await pool.query(
+        `INSERT INTO urls (original_url, custom_alias, short_code, created_at, expires_at)
+         VALUES ($1, $2, $3, NOW(), $4)`,
+        [original_url, custom_alias, short_code, expires_at]
+      );
     } else {
       const result = await pool.query(
         'INSERT INTO urls (original_url, created_at, expires_at) VALUES ($1, NOW(), $2) RETURNING id',
@@ -27,6 +34,7 @@ const shortenUrl = async (req, res) => {
       );
       const id = result.rows[0].id;
       short_code = encodeBase62(id);
+
       await pool.query('UPDATE urls SET short_code = $1 WHERE id = $2', [short_code, id]);
     }
 
@@ -50,12 +58,22 @@ const redirectUrl = async (req, res) => {
     const cachedUrl = await redis.get(shortCode);
     if (cachedUrl) {
       console.log(`📦 Cache hit: ${shortCode}`);
-      
-      // İsteğe bağlı: Analytics kaydını yine yap
+
+      // Analytics kaydı (DB'den url_id çekilerek)
       await pool.query(
-        `INSERT INTO analytics (url_id, ip_address, user_agent, referer)
-         VALUES ((SELECT id FROM urls WHERE short_code = $1), $2, $3, $4)`,
-        [shortCode, req.ip, req.headers['user-agent'], req.headers.referer || null]
+        `INSERT INTO analytics (url_id, ip_address, user_agent, referer, country, city)
+         VALUES (
+           (SELECT id FROM urls WHERE short_code = $1),
+           $2, $3, $4, $5, $6
+         )`,
+        [
+          shortCode,
+          req.ip,
+          req.headers['user-agent'],
+          req.headers.referer || null,
+          geoip.lookup(req.ip)?.country || null,
+          geoip.lookup(req.ip)?.city || null
+        ]
       );
 
       return res.redirect(cachedUrl);
@@ -63,7 +81,7 @@ const redirectUrl = async (req, res) => {
 
     console.log(`❌ Cache miss: ${shortCode}`);
 
-    // 2. DB'den kontrol
+    // 2. Veritabanından kontrol
     const result = await pool.query(
       'SELECT * FROM urls WHERE short_code = $1 AND is_active = true',
       [shortCode]
@@ -75,33 +93,45 @@ const redirectUrl = async (req, res) => {
 
     const urlData = result.rows[0];
 
-    // 3. Expiration kontrolü
+    // 3. Süre kontrolü
     if (urlData.expires_at && new Date() > new Date(urlData.expires_at)) {
       return res.status(410).json({ error: 'Link süresi dolmuş' });
     }
 
-    // 4. Redis'e ekle (1 saat süreyle)
+    // 4. Redis’e ekle
     await redis.set(shortCode, urlData.original_url, 'EX', 3600);
 
     // 5. Click sayısı artır
     await pool.query('UPDATE urls SET click_count = click_count + 1 WHERE id = $1', [urlData.id]);
 
-    // 6. Analytics kaydı
+    // 6. Lokasyon bilgisi
+    const rawIp = req.ip;
+    const ip = rawIp === '::1' ? '8.8.8.8' : rawIp; // Lokal testte sabit IP veriyoruz
+    const geo = geoip.lookup(ip);
+    const country = geo?.country || null;
+    const city = geo?.city || null;
+
+    // 7. Analytics kaydı
     await pool.query(
-      `INSERT INTO analytics (url_id, ip_address, user_agent, referer)
-       VALUES ($1, $2, $3, $4)`,
-      [urlData.id, req.ip, req.headers['user-agent'], req.headers.referer || null]
+      `INSERT INTO analytics (url_id, ip_address, user_agent, referer, country, city)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        urlData.id,
+        req.ip,
+        req.headers['user-agent'],
+        req.headers.referer || null,
+        country,
+        city
+      ]
     );
 
-    // 7. Yönlendir
+    // 8. Yönlendir
     return res.redirect(urlData.original_url);
-
   } catch (err) {
     console.error('redirectUrl error:', err);
     return res.status(500).json({ error: 'Sunucu hatası' });
   }
 };
-
 
 const getUrlStats = async (req, res) => {
   const { shortCode } = req.params;

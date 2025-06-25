@@ -2,11 +2,10 @@ const pool = require('../config/database');
 
 const createTables = async () => {
   try {
-    // URLs Tablosu
     await pool.query(`
       CREATE TABLE IF NOT EXISTS urls (
         id SERIAL PRIMARY KEY,
-        short_code VARCHAR(20) UNIQUE NOT NULL,
+        short_code VARCHAR(20) UNIQUE, -- NOT NULL kaldırıldı
         original_url TEXT NOT NULL,
         custom_alias VARCHAR(50),
         user_id INTEGER,
@@ -17,7 +16,6 @@ const createTables = async () => {
       );
     `);
 
-    // Analytics Tablosu
     await pool.query(`
       CREATE TABLE IF NOT EXISTS analytics (
         id SERIAL PRIMARY KEY,
