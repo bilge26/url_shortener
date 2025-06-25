@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "db:init": "node src/models/initDb.js"
+    "db:init": "node src/models/initDb.js",
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
