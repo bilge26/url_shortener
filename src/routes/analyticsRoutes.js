@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-
 const { getUrlStats } = require('../controllers/analyticsController');
+const auth = require('../middleware/auth');
 
-// 📊 İstatistik endpoint'i
-router.get('/shorten/stats/:shortCode', getUrlStats);
+// 🔐 Sadece giriş yapmış kullanıcı erişebilir
+router.get('/shorten/stats/:shortCode', auth, getUrlStats);
 
 module.exports = router;

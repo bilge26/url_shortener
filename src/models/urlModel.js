@@ -1,19 +1,21 @@
 const pool = require('../config/database');
 
-const insertUrl = async ({ original_url, custom_alias, short_code, expires_at }) => {
+const insertUrl = async ({ original_url, custom_alias, short_code, expires_at, user_id }) => {
   return await pool.query(
-    `INSERT INTO urls (original_url, custom_alias, short_code, created_at, expires_at)
-     VALUES ($1, $2, $3, NOW(), $4)`,
-    [original_url, custom_alias, short_code, expires_at]
+    `INSERT INTO urls (original_url, custom_alias, short_code, created_at, expires_at, user_id)
+     VALUES ($1, $2, $3, NOW(), $4, $5)`,
+    [original_url, custom_alias, short_code, expires_at, user_id]
   );
 };
 
-const insertUrlWithoutCode = async ({ original_url, expires_at }) => {
+
+const insertUrlWithoutCode = async ({ original_url, expires_at, user_id }) => {
   return await pool.query(
-    'INSERT INTO urls (original_url, created_at, expires_at) VALUES ($1, NOW(), $2) RETURNING id',
-    [original_url, expires_at]
+    'INSERT INTO urls (original_url, created_at, expires_at, user_id) VALUES ($1, NOW(), $2, $3) RETURNING id',
+    [original_url, expires_at, user_id]
   );
 };
+
 
 const updateShortCode = async (id, short_code) => {
   return await pool.query(

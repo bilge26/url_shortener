@@ -11,6 +11,11 @@ const getUrlStats = async (req, res) => {
       return res.status(404).json({ error: 'URL bulunamadı' });
     }
 
+    // 👇 Token'dan gelen kullanıcı, linki oluşturan kullanıcı mı?
+    if (urlData.user_id !== req.user.userId) {
+      return res.status(403).json({ error: 'Bu URL\'nin istatistiklerini görüntülemeye yetkiniz yok' });
+    }
+
     const analytics = await getAnalyticsByUrlId(urlData.id);
 
     return res.status(200).json({
@@ -25,5 +30,7 @@ const getUrlStats = async (req, res) => {
     return res.status(500).json({ error: 'Sunucu hatası' });
   }
 };
+
+
 
 module.exports = { getUrlStats };

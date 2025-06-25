@@ -15,6 +15,7 @@ const geoip = require('geoip-lite');
 
 const shortenUrl = async (req, res) => {
   const { original_url, custom_alias, expires_at } = req.body;
+  const user_id = req.user.userId; // 👈 token'dan gelen user id
 
   if (!isValidUrl(original_url)) {
     return res.status(400).json({ error: 'Geçersiz URL formatı' });
@@ -30,9 +31,9 @@ const shortenUrl = async (req, res) => {
       }
 
       short_code = custom_alias;
-      await insertUrl({ original_url, custom_alias, short_code, expires_at });
+      await insertUrl({ original_url, custom_alias, short_code, expires_at, user_id });
     } else {
-      const result = await insertUrlWithoutCode({ original_url, expires_at });
+      const result = await insertUrlWithoutCode({ original_url, expires_at, user_id });
       const id = result.rows[0].id;
       short_code = encodeBase62(id);
       await updateShortCode(id, short_code);
@@ -49,6 +50,7 @@ const shortenUrl = async (req, res) => {
     return res.status(500).json({ error: 'Sunucu hatası' });
   }
 };
+
 
 const redirectUrl = async (req, res) => {
   const { shortCode } = req.params;
