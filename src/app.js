@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const testRoutes = require('./routes/testRoutes');
 const urlRoutes = require('./routes/urlRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/test', testRoutes);
 app.use('/', urlRoutes);
 app.use('/api', analyticsRoutes);
+app.use('/auth', authRoutes);
 
 // Test endpoint
 app.get('/', (req, res) => {
