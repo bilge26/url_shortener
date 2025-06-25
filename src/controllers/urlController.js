@@ -13,22 +13,18 @@ const shortenUrl = async (req, res) => {
     let short_code;
 
     if (custom_alias) {
-      // Custom alias varsa, benzersiz mi kontrol et
       const existing = await pool.query('SELECT * FROM urls WHERE short_code = $1', [custom_alias]);
       if (existing.rows.length > 0) {
         return res.status(409).json({ error: 'Custom alias zaten kullanılıyor' });
       }
       short_code = custom_alias;
     } else {
-      // Otomatik kod üret
       const result = await pool.query(
         'INSERT INTO urls (original_url, created_at, expires_at) VALUES ($1, NOW(), $2) RETURNING id',
         [original_url, expires_at]
       );
       const id = result.rows[0].id;
       short_code = encodeBase62(id);
-
-      // short_code'u güncelle
       await pool.query('UPDATE urls SET short_code = $1 WHERE id = $2', [short_code, id]);
     }
 
@@ -44,4 +40,35 @@ const shortenUrl = async (req, res) => {
   }
 };
 
-module.exports = { shortenUrl };
+const redirectUrl = async (req, res) => {
+  const { shortCode } = req.params;
+
+  try {
+    const result = await pool.query(
+      'SELECT * FROM urls WHERE short_code = $1 AND is_active = true',
+      [shortCode]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Link bulunamadı' });
+    }
+
+    const urlData = result.rows[0];
+
+    if (urlData.expires_at && new Date() > new Date(urlData.expires_at)) {
+      return res.status(410).json({ error: 'Link süresi dolmuş' });
+    }
+
+    await pool.query(
+      'UPDATE urls SET click_count = click_count + 1 WHERE id = $1',
+      [urlData.id]
+    );
+
+    return res.redirect(urlData.original_url);
+  } catch (err) {
+    console.error('redirectUrl error:', err);
+    return res.status(500).json({ error: 'Sunucu hatası' });
+  }
+};
+
+module.exports = { shortenUrl, redirectUrl };
