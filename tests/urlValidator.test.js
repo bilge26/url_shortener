@@ -10,5 +10,12 @@ describe('URL Validator', () => {
     expect(isValidUrl('not-a-url')).toBe(false);
     expect(isValidUrl('ftp://file.com')).toBe(false);
   });
+
+    it('should reject malicious URLs', () => {
+    expect(isValidUrl('javascript:alert(1)')).toBe(false);
+    expect(isValidUrl('data:text/html,<script>')).toBe(false);
+    expect(isValidUrl('http://phishing.com')).toBe(false);
+  });
+
 });
 
