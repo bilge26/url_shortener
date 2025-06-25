@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/database');
 const encodeBase62 = require('../utils/shortCodeGenerator');
 const isValidUrl = require('../utils/urlValidator');
+const redis = require('../config/redis');
 
 
 router.get('/urls', async (req, res) => {
@@ -25,6 +26,17 @@ router.get('/validate', (req, res) => {
 
   const valid = isValidUrl(url);
   res.send(`Geçerli mi? ${valid}`);
+});
+
+router.get('/redis-test', async (req, res) => {
+  try {
+    await redis.set('deneme_key', 'deneme_degeri', 'EX', 60);
+    const value = await redis.get('deneme_key');
+    res.send(`Redis test başarılı. Değer: ${value}`);
+  } catch (err) {
+    console.error('Redis test hatası:', err);
+    res.status(500).send('Redis bağlantı hatası');
+  }
 });
 
 module.exports = router;
