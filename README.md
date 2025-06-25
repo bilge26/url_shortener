@@ -26,9 +26,6 @@ cd url-shortener
 npm install
 
 .env dosyası örneği:
-ini
-Kopyala
-Düzenle
 PORT=3000
 DATABASE_URL=postgresql://kullanici:sifre@localhost:5432/urlshortener
 REDIS_HOST=localhost
@@ -36,45 +33,30 @@ REDIS_PORT=6379
 JWT_SECRET=benimGizliAnahtarim
 Veritabanı tablolarını oluşturmak için:
 
-bash
-Kopyala
-Düzenle
 node src/initDb.js
 🧪 Çalıştırma
-bash
-Kopyala
-Düzenle
+
 npm run dev
 🔐 Auth API
 POST /auth/register
-json
-Kopyala
-Düzenle
+
 {
   "email": "test@example.com",
   "password": "sifre123"
 }
 POST /auth/login
-json
-Kopyala
-Düzenle
+
 {
   "email": "test@example.com",
   "password": "sifre123"
 }
 ➡ Response:
 
-json
-Kopyala
-Düzenle
 { "token": "..." }
 🔗 URL API
 🔒 POST /shorten
 Authorization: Bearer <token>
 
-json
-Kopyala
-Düzenle
 {
   "original_url": "https://example.com",
   "custom_alias": "ornek",          // opsiyonel
@@ -82,9 +64,6 @@ Düzenle
 }
 ➡ Response:
 
-json
-Kopyala
-Düzenle
 {
   "short_url": "http://localhost:3000/ornek",
   "short_code": "ornek",
@@ -115,9 +94,6 @@ Jest + Supertest (testler)
 geoip-lite (lokasyon çözümleme)
 
 📂 Proje Yapısı
-arduino
-Kopyala
-Düzenle
 src/
 ├── controllers/
 ├── routes/
