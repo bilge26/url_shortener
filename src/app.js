@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const testRoutes = require('./routes/testRoutes');
 const urlRoutes = require('./routes/urlRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
 
 const app = express();
@@ -15,6 +16,7 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use('/test', testRoutes);
 app.use('/', urlRoutes);
+app.use('/api', analyticsRoutes);
 
 // Test endpoint
 app.get('/', (req, res) => {
