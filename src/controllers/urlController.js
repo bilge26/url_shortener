@@ -59,16 +59,31 @@ const redirectUrl = async (req, res) => {
       return res.status(410).json({ error: 'Link süresi dolmuş' });
     }
 
+    // 🔢 Click count artır
     await pool.query(
       'UPDATE urls SET click_count = click_count + 1 WHERE id = $1',
       [urlData.id]
     );
 
+    // 📊 Analytics kaydı
+    await pool.query(
+      `INSERT INTO analytics (url_id, ip_address, user_agent, referer)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        urlData.id,
+        req.ip,
+        req.headers['user-agent'],
+        req.headers.referer || null
+      ]
+    );
+
+    // 🔁 Yönlendir
     return res.redirect(urlData.original_url);
   } catch (err) {
     console.error('redirectUrl error:', err);
     return res.status(500).json({ error: 'Sunucu hatası' });
   }
 };
+
 
 module.exports = { shortenUrl, redirectUrl };
